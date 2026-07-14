@@ -2,16 +2,16 @@ from comun.excepciones import DniInvalidoError
 
 class Cliente:
     def __init__(self, dni, nombre, telefono, direccion, ciudad, distrito):
-        self.dni = dni
-        self.nombre = nombre
-        self.telefono = telefono
-        self.direccion = direccion
-        self.ciudad = ciudad
-        self.distrito = distrito
+        self.__dni = dni
+        self.__nombre = nombre
+        self.__telefono = telefono
+        self.__direccion = direccion
+        self.__ciudad = ciudad
+        self.__distrito = distrito
 
     @property
     def dni(self):
-        return self._dni
+        return self.__dni
 
     @dni.setter
     def dni(self, valor):
