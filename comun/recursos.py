@@ -3,28 +3,28 @@ import os
 try:
     from barcode import Code128
     from barcode.writer import ImageWriter
-    HAY_BARCODE = True
+    BARCODE_DISPONIBLE = True
 except ImportError:
-    HAY_BARCODE = False
+    BARCODE_DISPONIBLE = False
 
 try:
     import qrcode
-    HAY_QR = True
+    QR_DISPONIBLE = True
 except ImportError:
-    HAY_QR = False
+    QR_DISPONIBLE = False
 
 try:
     from openpyxl import Workbook
     from openpyxl.drawing.image import Image as ImagenExcel
-    HAY_EXCEL = True
+    EXCEL_DISPONIBLE = True
 except ImportError:
-    HAY_EXCEL = False
+    EXCEL_DISPONIBLE = False
 
 try:
     from PIL import Image as PILImage, ImageDraw, ImageFont
-    HAY_PIL = True
+    IMAGEN_DISPONIBLE = True
 except ImportError:
-    HAY_PIL = False
+    IMAGEN_DISPONIBLE = False
 
 CARPETA_SALIDA = "salida"
 
@@ -33,7 +33,7 @@ def _asegurar_carpeta():
         os.makedirs(CARPETA_SALIDA)
 
 def _cargar_fuente(tamano=18):
-    if not HAY_PIL:
+    if not IMAGEN_DISPONIBLE:
         return None
     try:
         return ImageFont.truetype("arial.ttf", tamano)
@@ -43,7 +43,7 @@ def _cargar_fuente(tamano=18):
 def generar_codigo_barras(codigo):
     _asegurar_carpeta()
     ruta_base = os.path.join(CARPETA_SALIDA, "barcode_" + codigo)
-    if HAY_BARCODE:
+    if BARCODE_DISPONIBLE:
         barras = Code128(codigo, writer=ImageWriter())
         return barras.save(ruta_base)
     ruta_txt = ruta_base + ".txt"
@@ -54,7 +54,7 @@ def generar_codigo_barras(codigo):
 def generar_qr(contenido, nombre):
     _asegurar_carpeta()
     ruta = os.path.join(CARPETA_SALIDA, nombre)
-    if HAY_QR:
+    if QR_DISPONIBLE:
         qr = qrcode.QRCode(version=2, box_size=10, border=4)
         qr.add_data(contenido)
         qr.make(fit=True)
@@ -70,7 +70,7 @@ def generar_qr(contenido, nombre):
 def generar_rotulado_imagen(texto, nombre):
     _asegurar_carpeta()
     ruta = os.path.join(CARPETA_SALIDA, nombre)
-    if HAY_PIL:
+    if IMAGEN_DISPONIBLE:
         imagen = PILImage.new("RGB", (620, 460), color="white")
         dibujo = ImageDraw.Draw(imagen)
         dibujo.multiline_text((20, 20), texto, fill="black",
@@ -83,23 +83,40 @@ def generar_rotulado_imagen(texto, nombre):
         archivo.write(texto)
     return ruta_txt
 
+def _ajustar_ancho_columnas(hoja, encabezados):
+    from openpyxl.utils import get_column_letter
+    for indice, encabezado in enumerate(encabezados, start=1):
+        letra = get_column_letter(indice)
+        ancho = max(12, min(38, len(str(encabezado)) + 6))
+        hoja.column_dimensions[letra].width = ancho
+
 def exportar_excel(nombre_archivo, encabezados, filas, imagenes=None):
     _asegurar_carpeta()
     ruta = os.path.join(CARPETA_SALIDA, nombre_archivo)
-    if HAY_EXCEL:
+    if EXCEL_DISPONIBLE:
+        from openpyxl.utils import get_column_letter
+
+        TAMANO_IMAGEN_PX = 100
+        ANCHO_COLUMNA_IMAGEN = 15
+        ALTO_FILA_IMAGEN = 78
+
         libro = Workbook()
         hoja = libro.active
         hoja.title = "Reporte"
         hoja.append(encabezados)
         for fila in filas:
             hoja.append(fila)
+        _ajustar_ancho_columnas(hoja, encabezados)
         if imagenes:
-            for ruta_img, celda in imagenes:
+            for ruta_img, fila_num, columna_num in imagenes:
                 if ruta_img and os.path.exists(ruta_img) and ruta_img.lower().endswith(".png"):
+                    letra_columna = get_column_letter(columna_num)
                     img = ImagenExcel(ruta_img)
-                    img.width = 160
-                    img.height = 160
-                    hoja.add_image(img, celda)
+                    img.width = TAMANO_IMAGEN_PX
+                    img.height = TAMANO_IMAGEN_PX
+                    hoja.column_dimensions[letra_columna].width = ANCHO_COLUMNA_IMAGEN
+                    hoja.row_dimensions[fila_num].height = ALTO_FILA_IMAGEN
+                    hoja.add_image(img, letra_columna + str(fila_num))
         ruta_xlsx = ruta + ".xlsx"
         libro.save(ruta_xlsx)
         return ruta_xlsx
@@ -110,12 +127,14 @@ def exportar_excel(nombre_archivo, encabezados, filas, imagenes=None):
             archivo.write(";".join(str(c) for c in fila) + "\n")
     return ruta_csv
 
-def estado_librerias():
-    def marca(ok):
-        return "disponible" if ok else "NO instalada (se usa respaldo en texto)"
-    return (
-        "  python-barcode : " + marca(HAY_BARCODE) + "\n"
-        "  qrcode         : " + marca(HAY_QR) + "\n"
-        "  openpyxl       : " + marca(HAY_EXCEL) + "\n"
-        "  pillow (PIL)   : " + marca(HAY_PIL)
-    )
+def librerias_faltantes():
+    faltantes = []
+    if not BARCODE_DISPONIBLE:
+        faltantes.append("python-barcode")
+    if not QR_DISPONIBLE:
+        faltantes.append("qrcode")
+    if not EXCEL_DISPONIBLE:
+        faltantes.append("openpyxl")
+    if not IMAGEN_DISPONIBLE:
+        faltantes.append("pillow")
+    return ", ".join(faltantes)
