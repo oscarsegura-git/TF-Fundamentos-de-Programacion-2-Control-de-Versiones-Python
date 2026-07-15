@@ -1,25 +1,23 @@
 from comun import entrada
 from comun.excepciones import (ClienteDuplicadoError, ClienteNoEncontradoError,
-                               DniInvalidoError)
+                               DatoInvalidoError, DniInvalidoError)
 
 class MenuClientes:
     def __init__(self, gestor_clientes, gestor_pedidos):
-        self.gestor = gestor_clientes
-        self.gestor_pedidos = gestor_pedidos
+        self.__gestor = gestor_clientes
+        self.__gestor_pedidos = gestor_pedidos
 
     def mostrar(self):
         opcion = ""
         while opcion != "5":
-            print("\n" + entrada.linea())
-            print(" MODULO 1 - GESTION DE CLIENTES")
-            print(entrada.linea())
+            entrada.titulo("Gestión de Clientes")
             print("  1. Registrar cliente")
             print("  2. Buscar cliente")
             print("  3. Listar clientes")
             print("  4. Actualizar cliente")
-            print("  5. Volver al menu principal")
+            print("  5. Volver al menú principal")
             print(entrada.linea())
-            opcion = entrada.pedir_opcion(" Opcion: ", ["1", "2", "3", "4", "5"])
+            opcion = entrada.pedir_opcion(" Opción: ", ["1", "2", "3", "4", "5"])
             if opcion == "1":
                 self._registrar()
             elif opcion == "2":
@@ -29,79 +27,109 @@ class MenuClientes:
             elif opcion == "4":
                 self._actualizar()
 
+    def _contar_pedidos(self, dni):
+        return len(self.__gestor_pedidos.pedidos_de_cliente(dni))
+
     def _pedir_dni(self):
         while True:
-            dni = entrada.pedir_texto(" DNI (8 digitos): ")
+            dni = entrada.pedir_texto(" DNI             : ")
             try:
                 if not (len(dni) == 8 and dni.isdigit()):
                     raise DniInvalidoError(
-                        "El DNI debe tener exactamente 8 digitos numericos.")
+                        "El DNI debe contener exactamente 8 dígitos numéricos.")
                 return dni
             except DniInvalidoError as error:
-                print("  [ERROR] " + str(error))
+                print(" [ERROR] " + str(error))
+                print(" Ingrese nuevamente:")
 
     def _registrar(self):
-        print("\n --- Registrar cliente ---")
-        dni = self._pedir_dni()
+        entrada.titulo("Registrar cliente")
         nombre = entrada.pedir_texto(" Nombre completo : ")
-        telefono = entrada.pedir_texto(" Telefono        : ")
-        direccion = entrada.pedir_texto(" Direccion       : ")
-        ciudad = entrada.pedir_texto(" Ciudad          : ")
+        dni = self._pedir_dni()
+        telefono = entrada.pedir_texto(" Teléfono        : ")
+        direccion = entrada.pedir_texto(" Dirección       : ")
         distrito = entrada.pedir_texto(" Distrito        : ")
+        ciudad = entrada.pedir_texto(" Ciudad          : ")
+        print(entrada.linea())
         try:
-            self.gestor.registrar(dni, nombre, telefono, direccion, ciudad, distrito)
+            self.__gestor.registrar(dni, nombre, telefono, direccion, ciudad, distrito)
             print(" [OK] Cliente registrado exitosamente.")
-        except ClienteDuplicadoError as error:
+        except (ClienteDuplicadoError, DatoInvalidoError) as error:
             print(" [ERROR] " + str(error))
+        entrada.pausar()
 
     def _buscar(self):
-        print("\n --- Buscar cliente ---")
-        dni = entrada.pedir_texto(" DNI a buscar: ")
+        entrada.titulo("Buscar cliente")
+        texto = entrada.pedir_texto(" Ingrese DNI o nombre: ")
+        print(entrada.linea())
         try:
-            cliente = self.gestor.buscar(dni)
-            print(entrada.linea())
+            encontrados = self.__gestor.buscar_por_texto(texto)
+        except ClienteNoEncontradoError as error:
+            print(" [ERROR] " + str(error))
+            entrada.pausar()
+            return
+        for cliente in encontrados:
+            print(" Cliente encontrado:")
             print("  Nombre    : " + cliente.nombre)
             print("  DNI       : " + cliente.dni)
-            print("  Telefono  : " + cliente.telefono)
-            print("  Direccion : " + cliente.direccion +
-                  " (" + cliente.distrito + ", " + cliente.ciudad + ")")
-            print("  Pedidos   : " + str(self._contar_pedidos(cliente.dni)))
-        except ClienteNoEncontradoError as error:
-            print(" [ERROR] " + str(error))
+            print("  Teléfono  : " + cliente.telefono)
+            print("  Dirección : " + cliente.direccion_completa())
+            print("  Pedidos   : " + str(self._contar_pedidos(cliente.dni)) +
+                  " pedidos registrados")
+            print(entrada.linea())
+        entrada.pausar()
 
-    def _contar_pedidos(self, dni):
-        return len(self.gestor_pedidos.pedidos_de_cliente(dni))
+    def _fila(self, dni, nombre, telefono, pedidos):
+        return ("  " + dni.ljust(11) + nombre.ljust(30)[:30] +
+                telefono.ljust(14) + pedidos)
 
     def _listar(self):
-        print("\n --- Listar clientes ---")
-        clientes = self.gestor.listar()
+        entrada.titulo("Listado de clientes")
+        clientes = self.__gestor.listar()
         if not clientes:
-            print(" No hay clientes registrados.")
+            print(" [INFO] No hay clientes registrados.")
+            entrada.pausar()
             return
+        print(self._fila("DNI", "NOMBRE", "TELÉFONO", "PEDIDOS"))
         print(entrada.linea())
-        print("  DNI        NOMBRE                    TELEFONO      PEDIDOS")
+        for cliente in clientes:
+            print(self._fila(cliente.dni, cliente.nombre, cliente.telefono,
+                             str(self._contar_pedidos(cliente.dni))))
         print(entrada.linea())
-        for c in clientes:
-            print("  " + c.dni.ljust(9) + "  " + c.nombre.ljust(24)[:24] +
-                  "  " + c.telefono.ljust(11) + "   " + str(self._contar_pedidos(c.dni)))
-        print(entrada.linea())
-        print(" Total de clientes registrados: " + str(self.gestor.cantidad()))
+        print(" Total de clientes registrados: " + str(self.__gestor.cantidad()))
+        entrada.pausar()
 
     def _actualizar(self):
-        print("\n --- Actualizar cliente (el DNI no se puede modificar) ---")
-        dni = entrada.pedir_texto(" DNI del cliente: ")
+        entrada.titulo("Actualizar cliente")
+        dni = entrada.pedir_texto(" Ingrese DNI del cliente: ")
         try:
-            cliente = self.gestor.buscar(dni)
+            cliente = self.__gestor.buscar(dni)
         except ClienteNoEncontradoError as error:
             print(" [ERROR] " + str(error))
+            entrada.pausar()
             return
-        print(" Deje el campo vacio para conservar el valor actual.")
-        nombre = input(" Nombre [" + cliente.nombre + "]: ").strip()
-        telefono = input(" Telefono [" + cliente.telefono + "]: ").strip()
-        direccion = input(" Direccion [" + cliente.direccion + "]: ").strip()
-        ciudad = input(" Ciudad [" + cliente.ciudad + "]: ").strip()
-        distrito = input(" Distrito [" + cliente.distrito + "]: ").strip()
-        self.gestor.actualizar(dni,
-                               nombre or None, telefono or None,
-                               direccion or None, ciudad or None, distrito or None)
-        print(" [OK] Datos actualizados (DNI intacto: " + cliente.dni + ").")
+        print(" Cliente: " + cliente.nombre)
+        print(entrada.linea())
+        print(" ¿Qué desea actualizar?  (el DNI no se puede modificar)")
+        print("  1. Nombre")
+        print("  2. Teléfono")
+        print("  3. Dirección")
+        print("  4. Cancelar")
+        opcion = entrada.pedir_opcion(" Opción: ", ["1", "2", "3", "4"])
+        if opcion == "4":
+            print(" [INFO] Actualización cancelada.")
+            entrada.pausar()
+            return
+        print(entrada.linea())
+        if opcion == "1":
+            cliente.nombre = entrada.pedir_texto(" Nuevo nombre: ")
+        elif opcion == "2":
+            cliente.telefono = entrada.pedir_texto(" Nuevo teléfono: ")
+        else:
+            cliente.direccion = entrada.pedir_texto(" Nueva dirección: ")
+            cliente.distrito = entrada.pedir_texto(" Nuevo distrito : ")
+            cliente.ciudad = entrada.pedir_texto(" Nueva ciudad   : ")
+        print(entrada.linea())
+        print(" [OK] Datos actualizados exitosamente.")
+        entrada.pausar()
+
