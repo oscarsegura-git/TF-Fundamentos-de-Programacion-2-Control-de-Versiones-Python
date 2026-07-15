@@ -1,84 +1,60 @@
-from comun.excepciones import DatoInvalidoError
+from comun import recursos
+from comun.excepciones import EntregaNoDisponibleError
 
-CATEGORIAS = ["Ropa femenina", "Ropa masculina", "Accesorios", "Cosméticos", "Pacas"]
+class GestorReportes:
+    def __init__(self, gestor_pedidos):
+        self.__gestor_pedidos = gestor_pedidos
 
-class Producto:
-    def __init__(self, codigo, nombre, categoria, precio):
-        self.__codigo = str(codigo).strip().upper()
-        self.nombre = nombre
-        self.categoria = categoria
-        self.precio = precio
-        self.__activo = True
+    def costo_envio(self, pedido):
+        if pedido.entrega is None:
+            raise EntregaNoDisponibleError(
+                "El pedido no tiene una entrega asignada.")
+        return pedido.entrega.desglose()
 
-    @property
-    def codigo(self):
-        return self.__codigo
+    def filtrar(self, estado=None, dni=None, desde=None, hasta=None):
+        pedidos = self.__gestor_pedidos.listar()
+        if estado:
+            pedidos = [p for p in pedidos if p.estado == estado]
+        if dni:
+            pedidos = [p for p in pedidos if p.cliente.dni == str(dni).strip()]
+        if desde and hasta:
+            pedidos = [p for p in pedidos
+                       if desde <= p.fecha_registro.date() <= hasta]
+        return pedidos
 
-    @property
-    def nombre(self):
-        return self.__nombre
+    def total_periodo(self, pedidos):
+        total = 0.0
+        for pedido in pedidos:
+            if pedido.entrega is not None:
+                total += pedido.entrega.desglose()[2]
+        return total
 
-    @nombre.setter
-    def nombre(self, valor):
-        valor = str(valor).strip()
-        if valor == "":
-            raise DatoInvalidoError("El nombre del producto no puede estar vacío.")
-        self.__nombre = valor
-
-    @property
-    def categoria(self):
-        return self.__categoria
-
-    @categoria.setter
-    def categoria(self, valor):
-        if valor not in CATEGORIAS:
-            raise DatoInvalidoError(
-                "Categoría no válida. Opciones: " + ", ".join(CATEGORIAS) + ".")
-        self.__categoria = valor
-
-    @property
-    def precio(self):
-        return self.__precio
-
-    @precio.setter
-    def precio(self, valor):
-        if valor <= 0:
-            raise DatoInvalidoError("El precio debe ser un valor positivo.")
-        self.__precio = float(valor)
-
-    @property
-    def activo(self):
-        return self.__activo
-
-    def activar(self):
-        self.__activo = True
-
-    def desactivar(self):
-        self.__activo = False
-
-    def estado_texto(self):
-        return "Activo" if self.__activo else "Inactivo"
-
-    def coincide(self, texto):
-        texto = str(texto).strip().lower()
-        return texto == self.__codigo.lower() or texto in self.__nombre.lower()
-
-    def __str__(self):
-        return self.__codigo + " - " + self.__nombre + " (S/ " + \
-            format(self.__precio, ".2f") + ")"
-
-    def _a_dict(self):
-        return {
-            "codigo": self.codigo,
-            "nombre": self.nombre,
-            "categoria": self.categoria,
-            "precio": self.precio,
-            "activo": self.activo,
-        }
-
-    @classmethod
-    def _desde_dict(cls, data):
-        producto = cls(data["codigo"], data["nombre"], data["categoria"], data["precio"])
-        if not data.get("activo", True):
-            producto.desactivar()
-        return producto
+    def exportar_excel(self, pedidos, nombre_archivo):
+        encabezados = ["Código pedido", "Cliente", "DNI", "Tipo prenda",
+                       "Peso (kg)", "Estado", "Tipo entrega", "Costo envío (S/)",
+                       "Total c/IGV (S/)", "Última actualización", "Comprobante",
+                       "Vista previa"]
+        columna_imagen = len(encabezados)
+        filas = []
+        imagenes = []
+        fila_excel = 1
+        for pedido in pedidos:
+            fila_excel += 1
+            if pedido.entrega is None:
+                tipo_entrega = "Sin entrega"
+                costo = 0.0
+                total = 0.0
+                comprobante = "-"
+            else:
+                tipo_entrega = pedido.entrega.descripcion()
+                costo, _, total = pedido.entrega.desglose()
+                comprobante = pedido.entrega.comprobante_archivo or "-"
+                if comprobante.lower().endswith(".png"):
+                    imagenes.append([comprobante, fila_excel, columna_imagen])
+            filas.append([
+                pedido.codigo, pedido.cliente.nombre, pedido.cliente.dni,
+                pedido.tipo_prenda, pedido.peso, pedido.estado, tipo_entrega,
+                round(costo, 2), round(total, 2), pedido.ultima_actualizacion(),
+                comprobante, "",
+            ])
+        return recursos.exportar_excel(nombre_archivo, encabezados, filas, imagenes)
