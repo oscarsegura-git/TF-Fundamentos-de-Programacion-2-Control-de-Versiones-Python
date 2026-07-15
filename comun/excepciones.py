@@ -27,3 +27,4 @@ class TransicionInvalidaError(SGPError):
 
 class EntregaNoDisponibleError(SGPError):
     pass
+
