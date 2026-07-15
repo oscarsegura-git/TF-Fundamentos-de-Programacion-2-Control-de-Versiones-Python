@@ -1,5 +1,5 @@
 import datos_demo
-from comun import entrada, recursos
+from comun import entrada, recursos, persistencia
 
 from clientes.gestor_clientes import GestorClientes
 from clientes.menu_clientes import MenuClientes
@@ -14,62 +14,74 @@ from reportes.menu_reportes import MenuReportes
 
 class SistemaGestionPedidos:
     def __init__(self):
-        self.gestor_clientes = GestorClientes()
-        self.gestor_productos = GestorProductos()
-        self.gestor_pedidos = GestorPedidos(self.gestor_clientes)
-        self.gestor_entregas = GestorEntregas(self.gestor_pedidos)
-        self.gestor_reportes = GestorReportes(self.gestor_pedidos)
+        self.__gestor_clientes = GestorClientes()
+        self.__gestor_productos = GestorProductos()
+        self.__gestor_pedidos = GestorPedidos(self.__gestor_clientes)
+        self.__gestor_entregas = GestorEntregas(self.__gestor_pedidos)
+        self.__gestor_reportes = GestorReportes(self.__gestor_pedidos)
 
-        self.menu_clientes = MenuClientes(self.gestor_clientes, self.gestor_pedidos)
-        self.menu_productos = MenuProductos(self.gestor_productos)
-        self.menu_pedidos = MenuPedidos(self.gestor_pedidos, self.gestor_clientes,
-                                        self.gestor_productos)
-        self.menu_entregas = MenuEntregas(self.gestor_entregas, self.gestor_pedidos)
-        self.menu_reportes = MenuReportes(self.gestor_reportes, self.gestor_pedidos)
+        self.__menu_clientes = MenuClientes(self.__gestor_clientes, self.__gestor_pedidos)
+        self.__menu_productos = MenuProductos(self.__gestor_productos)
+        self.__menu_pedidos = MenuPedidos(self.__gestor_pedidos, self.__gestor_clientes,
+                                         self.__gestor_productos)
+        self.__menu_entregas = MenuEntregas(self.__gestor_entregas)
+        self.__menu_reportes = MenuReportes(self.__gestor_reportes, self.__gestor_pedidos)
 
     def cargar_datos_demo(self):
-        datos_demo.cargar(self.gestor_clientes, self.gestor_productos,
-                          self.gestor_pedidos)
+        datos_demo.cargar(self.__gestor_clientes, self.__gestor_productos,
+                          self.__gestor_pedidos)
+
+    def cargar_datos(self):
+        if persistencia.existen_datos():
+            if persistencia.cargar(self.__gestor_clientes, self.__gestor_productos,
+                                   self.__gestor_pedidos):
+                print("\n [INFO] Datos cargados desde " + persistencia.RUTA_DATOS)
+                return
+        self.cargar_datos_demo()
+
+    def guardar_datos(self):
+        persistencia.guardar(self.__gestor_clientes, self.__gestor_productos,
+                             self.__gestor_pedidos)
 
     def ejecutar(self):
-        print("\n" + "=" * 54)
-        print("SISTEMA DE GESTION DE PEDIDOS (SGP)")
-        print("Tendencias Shein Peru")
-        print("=" * 54)
-        print(" Librerias de generacion de recursos:")
-        print(recursos.estado_librerias())
-
+        faltantes = recursos.librerias_faltantes()
+        if faltantes:
+            print("\n [INFO] Librerías no instaladas: " + faltantes)
+            print("        El sistema funciona igual y genera archivos de texto.")
         opcion = ""
         while opcion != "6":
-            print("\n" + "=" * 54)
-            print("   MENU PRINCIPAL")
-            print("=" * 54)
-            print("  1. Modulo de Clientes")
-            print("  2. Modulo de Productos")
-            print("  3. Modulo de Pedidos")
-            print("  4. Modulo de Entregas")
-            print("  5. Modulo de Reportes")
+            entrada.titulo("Tendencias Shein Perú — Sistema de Pedidos")
+            print("  1. Gestión de Clientes")
+            print("  2. Gestión de Productos")
+            print("  3. Gestión de Pedidos")
+            print("  4. Gestión de Entregas")
+            print("  5. Reportes")
             print("  6. Salir")
-            print("=" * 54)
-            opcion = entrada.pedir_opcion(" Seleccione un modulo: ",
+            print(entrada.linea())
+            opcion = entrada.pedir_opcion(" Seleccione una opción: ",
                                           ["1", "2", "3", "4", "5", "6"])
             if opcion == "1":
-                self.menu_clientes.mostrar()
+                self.__menu_clientes.mostrar()
             elif opcion == "2":
-                self.menu_productos.mostrar()
+                self.__menu_productos.mostrar()
             elif opcion == "3":
-                self.menu_pedidos.mostrar()
+                self.__menu_pedidos.mostrar()
             elif opcion == "4":
-                self.menu_entregas.mostrar()
+                self.__menu_entregas.mostrar()
             elif opcion == "5":
-                self.menu_reportes.mostrar()
+                self.__menu_reportes.mostrar()
             elif opcion == "6":
                 print("\n Gracias por usar el sistema. Hasta pronto.")
+            self.guardar_datos()
 
 def main():
     sistema = SistemaGestionPedidos()
-    sistema.cargar_datos_demo()
-    sistema.ejecutar()
+    sistema.cargar_datos()
+    try:
+        sistema.ejecutar()
+    finally:
+        sistema.guardar_datos()
 
 if __name__ == "__main__":
     main()
+
