@@ -2,12 +2,26 @@ from datetime import datetime
 
 from comun.excepciones import DatoInvalidoError
 
+ANCHO = 70
+
+def linea():
+    return "─" * ANCHO
+
+def titulo(texto):
+    print()
+    print(linea())
+    print(" " + texto.upper())
+    print(linea())
+
+def pausar():
+    input("\n Presione Enter para continuar...")
+
 def pedir_texto(mensaje, obligatorio=True):
     while True:
         texto = input(mensaje).strip()
         try:
             if obligatorio and texto == "":
-                raise DatoInvalidoError("El campo no puede estar vacio.")
+                raise DatoInvalidoError("El campo no puede estar vacío.")
             return texto
         except DatoInvalidoError as error:
             print("  [ERROR] " + str(error) + " Ingrese nuevamente.")
@@ -17,10 +31,11 @@ def pedir_entero(mensaje, minimo=1):
         try:
             numero = int(input(mensaje))
             if numero < minimo:
-                raise DatoInvalidoError("El valor debe ser mayor o igual a " + str(minimo) + ".")
+                raise DatoInvalidoError(
+                    "El valor debe ser mayor o igual a " + str(minimo) + ".")
             return numero
         except ValueError:
-            print("  [ERROR] Debe ingresar un numero entero. Ingrese nuevamente.")
+            print("  [ERROR] Debe ingresar un número entero. Ingrese nuevamente.")
         except DatoInvalidoError as error:
             print("  [ERROR] " + str(error) + " Ingrese nuevamente.")
 
@@ -29,12 +44,14 @@ def pedir_decimal(mensaje, minimo=0.0, estricto=True):
         try:
             numero = float(input(mensaje))
             if estricto and numero <= minimo:
-                raise DatoInvalidoError("El valor debe ser mayor que " + str(minimo) + ".")
+                raise DatoInvalidoError(
+                    "El valor debe ser mayor que " + str(minimo) + ".")
             if not estricto and numero < minimo:
-                raise DatoInvalidoError("El valor no puede ser menor que " + str(minimo) + ".")
+                raise DatoInvalidoError(
+                    "El valor no puede ser menor que " + str(minimo) + ".")
             return numero
         except ValueError:
-            print("  [ERROR] Debe ingresar un numero. Ingrese nuevamente.")
+            print("  [ERROR] Debe ingresar un número. Ingrese nuevamente.")
         except DatoInvalidoError as error:
             print("  [ERROR] " + str(error) + " Ingrese nuevamente.")
 
@@ -47,16 +64,19 @@ def pedir_fecha(mensaje):
         except ValueError:
             print("  [ERROR] Use el formato AAAA-MM-DD HH:MM. Ingrese nuevamente.")
 
+def pedir_dia(mensaje):
+    while True:
+        fecha = input(mensaje).strip()
+        try:
+            return datetime.strptime(fecha, "%Y-%m-%d").date()
+        except ValueError:
+            print("  [ERROR] Use el formato AAAA-MM-DD. Ingrese nuevamente.")
+
 def pedir_opcion(mensaje, opciones_validas):
     validas = [str(o) for o in opciones_validas]
     while True:
         opcion = input(mensaje).strip()
         if opcion in validas:
             return opcion
-        print("  [ERROR] Opcion no valida. Elija entre: " + ", ".join(validas) + ".")
+        print("  [ERROR] Opción no válida. Elija entre: " + ", ".join(validas) + ".")
 
-def pausar():
-    input("\n Presione Enter para continuar...")
-
-def linea():
-    return "-" * 54
