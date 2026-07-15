@@ -3,46 +3,49 @@ from comun.excepciones import ClienteDuplicadoError, ClienteNoEncontradoError
 
 class GestorClientes:
     def __init__(self):
-        self._clientes = {}
+        self.__clientes = []
+
+    def _indice(self, dni):
+        dni = str(dni).strip()
+        for i in range(len(self.__clientes)):
+            if self.__clientes[i].dni == dni:
+                return i
+        return -1
 
     def existe(self, dni):
-        return str(dni).strip() in self._clientes
+        return self._indice(dni) >= 0
 
     def registrar(self, dni, nombre, telefono, direccion, ciudad, distrito):
         cliente = Cliente(dni, nombre, telefono, direccion, ciudad, distrito)
         if self.existe(cliente.dni):
             raise ClienteDuplicadoError(
                 "Ya existe un cliente registrado con el DNI " + cliente.dni + ".")
-        self._clientes[cliente.dni] = cliente
+        self.__clientes.append(cliente)
         return cliente
 
     def buscar(self, dni):
-        dni = str(dni).strip()
-        if dni not in self._clientes:
+        indice = self._indice(dni)
+        if indice < 0:
             raise ClienteNoEncontradoError(
-                "No existe un cliente con el DNI " + dni + ".")
-        return self._clientes[dni]
+                "No existe un cliente con el DNI " + str(dni).strip() + ".")
+        return self.__clientes[indice]
 
-    def obtener_o_none(self, dni):
-        return self._clientes.get(str(dni).strip())
-
-    def actualizar(self, dni, nombre=None, telefono=None, direccion=None,
-                   ciudad=None, distrito=None):
-        cliente = self.buscar(dni)
-        if nombre:
-            cliente.nombre = nombre
-        if telefono:
-            cliente.telefono = telefono
-        if direccion:
-            cliente.direccion = direccion
-        if ciudad:
-            cliente.ciudad = ciudad
-        if distrito:
-            cliente.distrito = distrito
-        return cliente
+    def buscar_por_texto(self, texto):
+        encontrados = [c for c in self.__clientes if c.coincide(texto)]
+        if not encontrados:
+            raise ClienteNoEncontradoError(
+                "No se encontraron clientes para '" + str(texto).strip() + "'.")
+        return encontrados
 
     def listar(self):
-        return list(self._clientes.values())
+        return list(self.__clientes)
 
     def cantidad(self):
-        return len(self._clientes)
+        return len(self.__clientes)
+
+    def a_dict(self):
+        return [cliente._a_dict() for cliente in self.__clientes]
+
+    def cargar_desde_dict(self, lista):
+        self.__clientes = [Cliente._desde_dict(d) for d in lista]
+
